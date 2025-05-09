@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>meow Analyzer</title>
+    <!-- Tailwind via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'noir': {
+                50: '#f8f8f8',
+                100: '#e9e9e9',
+                200: '#d4d4d4',
+                300: '#b3b3b3',
+                400: '#8c8c8c',
+                500: '#6b6b6b',
+                600: '#505050',
+                700: '#383838',
+                800: '#1c1c1c',
+                900: '#0a0a0a',
+                950: '#050505',
+              }
+            },
+            boxShadow: {
+              'noir': '0 0 20px rgba(0, 0, 0, 0.3)',
+              'noir-sm': '0 0 10px rgba(0, 0, 0, 0.2)',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@200;300;400;500;600&display=swap');
+      
+      body {
+        font-family: 'Montserrat', sans-serif;
+        background: linear-gradient(to bottom, #0a0a0a, #141414);
+        min-height: 100vh;
+      }
+      
+      /* Custom file input styles */
+      .file-input-container {
+        position: relative;
+        display: inline-block;
+      }
+      .file-input-container input[type="file"] {
+        position: absolute;
+        opacity: 0;
+        z-index: 2;
+        cursor: pointer;
+        height: 100%;
+        width: 100%;
+      }
+      
+      /* For reply column: applying ellipsis */
+      .truncate-reply {
+        max-width: 200px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+      }
+      
+      /* Pulse animation for the ping button and copy animation */
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+      }
+      .animate-pulse {
+        animation: pulse 1s;
+      }
+      
+      /* Noir Aero specific styles */
+      .noir-btn {
+        background-color: transparent;
+        color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        transition: all 0.3s ease;
+        letter-spacing: 0.05em;
+      }
+      
+      .noir-btn:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.3);
+      }
+      
+      .noir-btn-accent {
+        background-color: white;
+        color: black;
+        transition: all 0.3s ease;
+        letter-spacing: 0.05em;
+      }
+      
+      .noir-btn-accent:hover {
+        background-color: rgba(255, 255, 255, 0.8);
+      }
+      
+      .noir-card {
+        background-color: rgba(20, 20, 20, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+      }
+      
+      .noir-input {
+        background-color: rgba(10, 10, 10, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: white;
+        letter-spacing: 0.05em;
+      }
+      
+      .noir-input:focus {
+        border-color: rgba(255, 255, 255, 0.3);
+        outline: none;
+      }
+      
+      .noir-table th {
+        font-weight: 300;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+      }
+      
+      .noir-divider {
+        border-color: rgba(255, 255, 255, 0.1);
+      }
+    </style>
+  </head>
+  <body class="text-white p-6">
+    <header class="mb-12 text-center">
+      <h1 class="text-4xl font-light tracking-wider mb-2">meow.json Analyzer</h1>
+      <p class="mt-2 text-gray-400 font-light tracking-wide">
+        Lorem ipsum odor amet, consectetuer adipiscing elit.
+      </p>
+    </header>
+
+    <main class="max-w-4xl mx-auto">
+      <!-- File Upload and Controls -->
+      <div class="noir-card p-8 rounded-lg shadow-noir flex flex-col items-center space-y-5">
+        <div class="file-input-container">
+          <label class="px-8 py-4 noir-btn rounded-md text-lg cursor-pointer">
+            Choose JSON File
+            <input id="jsonInput" type="file" accept=".json" />
+          </label>
+        </div>
+        <button id="processBtn" class="w-full max-w-xs px-8 py-4 noir-btn-accent rounded-md text-xl font-light tracking-wide transition">
+          Process JSON
+        </button>
+      </div>
+      
+      <!-- Sorting & Search Controls -->
+      <div id="controls" class="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="flex items-center space-x-3">
+          <span class="font-light tracking-wide">Sort by:</span>
+          <!-- Sort buttons with inline SVG icons -->
+          <button data-sort="rating" class="sort-btn flex items-center px-4 py-1.5 noir-btn rounded-md text-sm">
+            <svg class="w-4 h-4 mr-2 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path d="M6 9l6-6 6 6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M6 15l6 6 6-6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Rating
+          </button>
+          <button data-sort="average" class="sort-btn flex items-center px-4 py-1.5 noir-btn rounded-md text-sm">
+            <svg class="w-4 h-4 mr-2 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path d="M4 6h16" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M4 12h10" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M4 18h8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Average Time
+          </button>
+          <button data-sort="mintime" class="sort-btn flex items-center px-4 py-1.5 noir-btn rounded-md text-sm">
+            <svg class="w-4 h-4 mr-2 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path d="M5 13l4 4L19 7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Min Time
+          </button>
+        </div>
+        <div class="flex items-center">
+          <input id="searchInput" type="text" placeholder="Search models..." class="px-4 py-2 noir-input rounded-md focus:outline-none" />
+        </div>
+      </div>
+      
+      <!-- Results Section with site cards -->
+      <div id="results" class="mt-10 space-y-4"></div>
+    </main>
+
+    <!-- Modal for extended site details -->
+    <div id="modalOverlay" class="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm hidden items-center justify-center">
+      <div id="modalContent" class="noir-card rounded-lg shadow-noir max-w-4xl w-full p-8 relative overflow-y-auto max-h-[90vh]">
+        <!-- Modal content is injected dynamically -->
+      </div>
+    </div>
+
+    <script>
+      let computedGroups = [];
+      let currentSort = { criterion: "rating", ascending: false };
+      function isPriority1(modelName) {
+        return (
+          modelName.includes("o1") ||
+		  modelName.includes("o3") ||
+		  modelName.includes("o4") ||
+		  modelName.includes("gpt-4.5") ||
+          modelName === "gpt-4.1"
+        );
+      }
+      function isPriority2(modelName) {
+        return (
+		  modelName === "gpt-4" ||
+	   	  modelName.includes("gpt-4o") ||
+		  modelName.includes("gpt-4-") ||
+		  modelName.includes("gpt-4.1-nano") ||
+		  modelName.includes("gpt-4.1-mini") ||
+          modelName.includes("3.5")
+        );
+      }
+      function readJSONFile(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            try {
+              const json = JSON.parse(event.target.result);
+              resolve(json);
+            } catch (e) {
+              reject(e);
+            }
+          };
+          reader.onerror = (error) => reject(error);
+          reader.readAsText(file);
+        });
+      }
+      function processData(data) {
+        const records = [];
+        data.forEach(entry => {
+          if (entry.librechat && entry.librechat.models) {
+            const allModels = [];
+            Object.keys(entry.librechat.models).forEach(provider => {
+              const modelsObj = entry.librechat.models[provider];
+              Object.keys(modelsObj).forEach(modelKey => {
+                const details = modelsObj[modelKey];
+                let place = "";
+                if (provider === "openAI") {
+                  if (isPriority1(modelKey)) {
+                    place = "first";
+                  } else if (isPriority2(modelKey)) {
+                    place = "second";
+                  }
+                }
+                allModels.push({
+                  provider,
+                  model: modelKey,
+                  reply: details.reply,
+                  time: Number(details.time),
+                  first_token: Number(details.first_token),
+                  place
+                });
+              });
+            });
+            const mainModels = allModels.filter(m => m.provider === "openAI" && (m.place === "first" || m.place === "second"));
+            records.push({
+              url: entry.url,
+              title: entry.title,
+              version: entry.librechat.version || "Unknown",
+              provider: "Combined",
+              mainModels,
+              allModels
+            });
+          }
+        });
+        return records;
+      }
+      function groupBySite(records) {
+        const groups = {};
+        records.forEach(record => {
+          if (!groups[record.url]) {
+            groups[record.url] = {
+              url: record.url,
+              title: record.title,
+              version: record.version,
+              provider: record.provider,
+              mainModels: [],
+              allModels: []
+            };
+          }
+          groups[record.url].mainModels = groups[record.url].mainModels.concat(record.mainModels);
+          groups[record.url].allModels = groups[record.url].allModels.concat(record.allModels);
+        });
+        return Object.values(groups);
+      }
+      function parseVersion(versionStr) {
+        if (versionStr === "Unknown") return 0;
+        const num = parseFloat(versionStr);
+        return isNaN(num) ? 0 : num;
+      }
+      function computeMetrics(groups) {
+        groups.forEach(group => {
+          const modelsToUse = group.mainModels.length > 0 ? group.mainModels : group.allModels;
+          group.model_count = modelsToUse.length;
+          modelsToUse.forEach(m => {
+            m.hybrid_metric = m.time + 0.1 * m.first_token;
+          });
+          group.averageHybrid = modelsToUse.reduce((sum, m) => sum + m.hybrid_metric, 0) / modelsToUse.length;
+          group.minTime = Math.min(...group.allModels.map(m => m.time));
+          group.version_numeric = parseVersion(group.version);
+          group.tier1 = group.mainModels.some(m => m.place === "first") ? 1 : 0;
+          group.bothTiers = (group.mainModels.some(m => m.place === "first") && group.mainModels.some(m => m.place === "second")) ? 1 : 0;
+        });
+        const counts = groups.map(g => g.model_count);
+        const hybs = groups.map(g => g.averageHybrid);
+        const versions = groups.map(g => g.version_numeric);
+        const minCount = Math.min(...counts);
+        const maxCount = Math.max(...counts);
+        const minHybrid = Math.min(...hybs);
+        const maxHybrid = Math.max(...hybs);
+        const minVersion = Math.min(...versions);
+        const maxVersion = Math.max(...versions);
+        groups.forEach(group => {
+          group.normModelCount = maxCount !== minCount
+            ? (group.model_count - minCount) / (maxCount - minCount)
+            : 1;
+          const normHybrid = maxHybrid !== minHybrid
+            ? (group.averageHybrid - minHybrid) / (maxHybrid - minHybrid)
+            : 1;
+          group.normHybrid = 1 - normHybrid;
+          group.normVersion = maxVersion !== minVersion
+            ? (group.version_numeric - minVersion) / (maxVersion - minVersion)
+            : 1;
+          group.mini_rating = 0.15 * group.normModelCount +
+                              0.35 * group.normHybrid +
+                              0.15 * group.normVersion +
+                              0.05 * group.tier1 +
+                              0.3 * group.bothTiers;
+        });
+        return groups;
+      }
+      function sortGroups(groups) {
+        const { criterion, ascending } = currentSort;
+        groups.sort((a, b) => {
+          let cmp = 0;
+          if (criterion === "rating") {
+            cmp = a.mini_rating - b.mini_rating;
+          } else if (criterion === "average") {
+            cmp = a.averageHybrid - b.averageHybrid;
+          } else if (criterion === "mintime") {
+            cmp = a.minTime - b.minTime;
+          }
+          return ascending ? cmp : -cmp;
+        });
+      }
+
+      function filterGroups(groups, query) {
+        if (!query) return groups;
+        const parts = query.split(";").map(part => part.trim()).filter(Boolean);
+        return groups.filter(group =>
+          parts.every(part => {
+            const quoteMatch = part.match(/^["'](.+)["']$/);
+            if (quoteMatch) {
+              const exact = quoteMatch[1].toLowerCase();
+              return group.allModels.some(m => m.model.toLowerCase() === exact);
+            } else {
+              const substr = part.toLowerCase();
+              return group.allModels.some(m => m.model.toLowerCase().includes(substr));
+            }
+          })
+        );
+      }
+      
+      function renderResults(groups) {
+        const searchQuery = document.getElementById("searchInput").value.trim().toLowerCase();
+        const resultsDiv = document.getElementById("results");
+        resultsDiv.innerHTML = "";
+        if (groups.length === 0) {
+          resultsDiv.innerHTML = "<p class='text-center text-gray-400 font-light tracking-wide'>No valid site models found.</p>";
+          return;
+        }
+        groups.forEach((group, index) => {
+          let matchBadge = "";
+          if (searchQuery) {
+            const parts = searchQuery.split(";").map(part => part.trim()).filter(Boolean);
+            const foundModels = parts.map(part => {
+              const quoteMatch = part.match(/^["'](.+)["']$/);
+              if (quoteMatch) {
+                const exact = quoteMatch[1].toLowerCase();
+                return group.allModels.find(m => m.model.toLowerCase() === exact);
+              } else {
+                const substr = part.toLowerCase();
+                return group.allModels.find(m => m.model.toLowerCase().includes(substr));
+              }
+            }).filter(Boolean);
+
+            if (foundModels.length > 0) {
+              matchBadge = `<div class="ml-auto flex gap-2 flex-wrap">` +
+                foundModels.map(m =>
+                  `<div class="text-sm text-white border border-white border-opacity-30 px-2 py-1 rounded-md tracking-wide">
+                    Matched: <span class="font-light">${m.model}</span>
+                  </div>`
+                ).join('') +
+                `</div>`;
+            }
+          }
+          const card = document.createElement("div");
+          card.className = "noir-card p-5 rounded-md shadow-noir-sm cursor-pointer hover:border-opacity-20 transition-all duration-300 flex items-center";
+          card.innerHTML = `
+            <div class="mr-6 text-2xl font-light text-white opacity-70">${index + 1}.</div>
+            <div class="flex-grow">
+              <h2 class="text-2xl font-light tracking-wide">${group.title}</h2>
+              <p class="text-gray-300 break-all font-light">${group.url}</p>
+              <p class="mt-2 text-sm text-gray-400 font-light">Rating: ${group.mini_rating.toFixed(2)}</p>
+            </div>
+            ${matchBadge}
+          `;
+          card.addEventListener("click", () => openModal(group));
+          resultsDiv.appendChild(card);
+        });
+      }
+
+      function createReplyCell(reply, id) {
+        const MAX_LENGTH = 30;
+        const cell = document.createElement("td");
+        cell.className = "px-3 py-2 text-sm font-light";
+        const span = document.createElement("span");
+        span.id = "reply-" + id;
+        if (reply.length > MAX_LENGTH) {
+          span.textContent = reply.substring(0, MAX_LENGTH) + "…";
+          span.classList.add("truncate-reply");
+          span.title = reply;
+          span.addEventListener("click", () => {
+            if (span.textContent.endsWith("…")) {
+              span.textContent = reply;
+            } else {
+              span.textContent = reply.substring(0, MAX_LENGTH) + "…";
+            }
+          });
+        } else {
+          span.textContent = reply;
+        }
+        cell.appendChild(span);
+        return cell;
+      }
+
+      function openModal(group) {
+        const modalOverlay = document.getElementById("modalOverlay");
+        const modalContent = document.getElementById("modalContent");
+        const groupsByProvider = {};
+        group.allModels.forEach((m, idx) => {
+          if (!groupsByProvider[m.provider]) {
+            groupsByProvider[m.provider] = [];
+          }
+          groupsByProvider[m.provider].push({ ...m, id: idx });
+        });
+        let providerSections = "";
+        for (const provider in groupsByProvider) {
+          let rows = "";
+          groupsByProvider[provider].forEach(m => {
+            rows += `
+              <tr class="border-b noir-divider">
+                <td class="px-3 py-2 text-sm font-light">${m.model}</td>
+                <td class="px-3 py-2 text-sm font-light">${m.place || "-"}</td>
+                <td class="px-3 py-2 text-sm font-light" id="reply-cell-${m.id}"></td>
+                <td class="px-3 py-2 text-sm font-light">${m.time.toFixed(3)}</td>
+                <td class="px-3 py-2 text-sm font-light">${m.first_token.toFixed(3)}</td>
+              </tr>
+            `;
+          });
+          providerSections += `
+            <div class="mb-8">
+              <h3 class="text-xl font-light tracking-wide mb-3">${provider}</h3>
+              <div class="overflow-x-auto border noir-divider rounded-md">
+                <table class="min-w-full text-left text-white text-sm noir-table">
+                  <thead class="bg-noir-900 bg-opacity-50">
+                    <tr>
+                      <th class="px-3 py-2">Model</th>
+                      <th class="px-3 py-2">Priority</th>
+                      <th class="px-3 py-2">Reply</th>
+                      <th class="px-3 py-2">Time</th>
+                      <th class="px-3 py-2">First Token</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${groupsByProvider[provider].map(m => {
+                      return `<tr class="border-b noir-divider">
+                        <td class="px-3 py-2 text-sm font-light">${m.model}</td>
+                        <td class="px-3 py-2 text-sm font-light">${m.place || "-"}</td>
+                        <td class="px-3 py-2 text-sm font-light" id="reply-cell-${m.id}"></td>
+                        <td class="px-3 py-2 text-sm font-light">${m.time.toFixed(3)}</td>
+                        <td class="px-3 py-2 text-sm font-light">${m.first_token.toFixed(3)}</td>
+                      </tr>`;
+                    }).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `;
+        }
+        modalContent.innerHTML = `
+          <!-- Modal header: Title, URL and details with control buttons on top right -->
+          <div class="flex flex-col sm:flex-row sm:items-start justify-between">
+            <div>
+              <h2 class="text-3xl font-light tracking-wide mb-2">${group.title}</h2>
+              <p class="text-sm text-gray-400 break-all font-light"><span class="font-normal">URL:</span> ${group.url}</p>
+              <p class="text-sm text-gray-400 font-light"><span class="font-normal">Rating:</span> ${group.mini_rating.toFixed(2)}</p>
+              <p class="text-sm text-gray-400 mb-3 font-light"><span class="font-normal">Avg Hybrid Metric:</span> ${group.averageHybrid.toFixed(2)}</p>
+            </div>
+            <!-- Control buttons moved to top-right -->
+            <div class="flex items-center space-x-3 mt-2 sm:mt-0">
+              <button id="copyBtn" class="px-4 py-1.5 noir-btn rounded-md transition text-sm tracking-wide">Copy URL</button>
+              <button id="pingBtn" class="px-4 py-1.5 noir-btn rounded-md transition text-sm tracking-wide">Ping Site</button>
+              <button id="visitBtn" class="px-4 py-1.5 noir-btn-accent rounded-md transition text-sm tracking-wide">Visit Site</button>
+            </div>
+          </div>
+          <div class="mt-6">
+            ${providerSections}
+          </div>
+        `;
+        for (const provider in groupsByProvider) {
+          groupsByProvider[provider].forEach(m => {
+            const cell = createReplyCell(m.reply, m.id);
+            const replyCell = document.getElementById("reply-cell-" + m.id);
+            if (replyCell) {
+              replyCell.replaceWith(cell);
+            }
+          });
+        }
+        modalOverlay.classList.remove("hidden");
+        modalOverlay.classList.add("flex");
+        document.getElementById("closeModalBtn")?.remove();
+        const closeBtn = document.createElement("button");
+        closeBtn.id = "closeModalBtn";
+        closeBtn.className = "absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-light";
+        closeBtn.textContent = "×";
+        closeBtn.addEventListener("click", closeModal);
+        modalContent.appendChild(closeBtn);
+        document.getElementById("pingBtn").addEventListener("click", () => pingSite(group.url));
+        document.getElementById("visitBtn").addEventListener("click", () => window.open(group.url, "_blank"));
+        document.getElementById("visitBtn").addEventListener("auxclick", (e) => {
+          if (e.button === 1) window.open(group.url, "_blank");
+        });
+        document.getElementById("copyBtn").addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(group.url);
+            const copyBtn = document.getElementById("copyBtn");
+            copyBtn.textContent = "Copied";
+            copyBtn.classList.add("animate-pulse");
+            setTimeout(() => {
+              copyBtn.textContent = "Copy URL";
+              copyBtn.classList.remove("animate-pulse");
+            }, 1000);
+          } catch (err) {
+            console.error("Failed to copy URL:", err);
+          }
+        });
+        document.getElementById("modalOverlay").addEventListener("click", function(e) {
+          if (e.target === this) closeModal();
+        });
+      }
+
+      async function pingSite(url) {
+        const pingBtn = document.getElementById("pingBtn");
+        pingBtn.textContent = "Pinging...";
+        pingBtn.classList.remove("bg-blue-600", "bg-green-600", "bg-red-600", "noir-btn");
+        pingBtn.classList.add("noir-btn", "transition", "duration-300");
+        
+        try {
+          const img = new Image();
+          let domainCheck = false;
+          const urlObj = new URL(url);
+          const domain = urlObj.hostname;
+          const imgPromise = new Promise((resolve) => {
+            img.onload = () => { 
+              domainCheck = true;
+              resolve();
+            };
+            img.onerror = (e) => {
+              domainCheck = e && e.currentTarget;
+              resolve();
+            };
+            img.src = `https://${domain}/favicon.ico?${Date.now()}`;
+            setTimeout(resolve, 3000);
+          });
+          
+          await imgPromise;
+          
+          if (!domainCheck) {
+            const fetchUrl = url + (url.includes("?") ? "&" : "?") + "ping=" + Date.now();
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            
+            try {
+              await fetch(fetchUrl, { 
+                method: "HEAD", 
+                cache: "no-store", 
+                mode: "no-cors",
+                signal: controller.signal
+              });
+              clearTimeout(timeoutId);
+              domainCheck = true;
+            } catch (fetchError) {
+              if (fetchError.message && (
+                fetchError.message.toLowerCase().includes("certificate") ||
+                fetchError.message.toLowerCase().includes("ssl") ||
+                fetchError.message.toLowerCase().includes("tls") ||
+                fetchError.message.toLowerCase().includes("cors")
+              )) {
+                domainCheck = true;
+              }
+            }
+          }
+          
+          if (domainCheck) {
+            pingBtn.textContent = "Online";
+            pingBtn.classList.remove("noir-btn");
+            pingBtn.classList.add("noir-btn-accent");
+          } else {
+            pingBtn.textContent = "Offline";
+            pingBtn.style.backgroundColor = "rgba(100, 100, 100, 0.2)";
+            pingBtn.style.borderColor = "rgba(255, 255, 255, 0.1)";
+          }
+        } catch (error) {
+          pingBtn.textContent = "Offline";
+          pingBtn.style.backgroundColor = "rgba(100, 100, 100, 0.2)";
+          pingBtn.style.borderColor = "rgba(255, 255, 255, 0.1)";
+        }
+        
+        pingBtn.classList.add("animate-pulse");
+        setTimeout(() => {
+          pingBtn.classList.remove("animate-pulse"); 
+        }, 1000);
+      }
+
+      function closeModal() {
+        document.getElementById("modalOverlay").classList.add("hidden");
+      }
+      document.querySelectorAll(".sort-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const criterion = btn.getAttribute("data-sort");
+          if (currentSort.criterion === criterion) {
+            currentSort.ascending = !currentSort.ascending;
+          } else {
+            currentSort.criterion = criterion;
+            currentSort.ascending = true;
+          }
+          updateResults();
+        });
+      });
+      document.getElementById("searchInput").addEventListener("input", () => {
+        updateResults();
+      });
+
+      function updateResults() {
+        let filtered = filterGroups(computedGroups, document.getElementById("searchInput").value);
+        sortGroups(filtered);
+        renderResults(filtered);
+      }
+      document.getElementById("processBtn").addEventListener("click", async () => {
+        const fileInput = document.getElementById("jsonInput");
+        if (!fileInput.files || fileInput.files.length === 0) {
+          alert("Please select a JSON file.");
+          return;
+        }
+        try {
+          const data = await readJSONFile(fileInput.files[0]);
+          const records = processData(data);
+          const groups = groupBySite(records);
+          computedGroups = computeMetrics(groups);
+          updateResults();
+        } catch (e) {
+          alert("Error processing JSON: " + e.message);
+          console.error(e);
+        }
+      });
+    </script>
+  </body>
+</html>
